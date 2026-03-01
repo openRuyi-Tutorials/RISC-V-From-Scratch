@@ -4,9 +4,9 @@
 > 
 > 💡 **提示**：本文档基于 AvrovaDonz2026、Jvlegod、purofle 等同学的实际踩坑经验整理
 > 
-> 📌 **变量说明**：本文命令默认使用 `${CLFS}`。如果你的环境变量叫 `$LFS`，请按需替换。
+> 📌 **变量说明**：本文命令默认使用 `${CLFS}` 与 `${TARGET}`。若你使用不同变量名（如 `$LFS`），请按需替换。
 > 
-> 🎯 **路线建议**：openRuyi 最终技术栈是 `glibc + RPM`，遇到路线选择问题时，优先参考 glibc 方案。
+> 🎯 **路线建议**：新人统一按 `glibc + systemd` 主线执行；本文排障也以该主线为准。
 >
 > ⚠️ **代码示例声明**：本文所有命令与脚本片段均为实例，仅用于说明排障思路，不保证可直接在任意环境执行。
 >
@@ -55,22 +55,24 @@ ${TARGET}-gcc -B${CLFS}/cross-tools/libexec/gcc/${TARGET}/13.2.0/ ...
 
 ---
 
-### Q3: musl 动态链接器报 "not found"
+### Q3: 程序提示 "not found" 但文件实际存在
 
-**症状**：文件明明存在，但运行时报错：
-```
-/bin/ls: error while loading shared libraries: /lib/libc.so: cannot open shared object file: No such file or directory
-```
+**症状**：二进制文件存在，但执行时报 `not found` 或动态链接错误。  
 
-**原因**：musl 的动态链接器使用绝对路径 `/lib/libc.so`，在 chroot 环境中解析失败。
+**原因**：通常是动态链接器路径不正确，或目标 rootfs 中缺失对应解释器。  
 
-**解决**：在 rootfs 中使用相对符号链接：
+**解决**：检查解释器并确认 glibc 链接器就位（注意命令执行上下文）：
 ```bash
-cd ${CLFS}/lib
-ln -sf libc.so ld-musl-riscv64.so.1
+# [Host] 在构建目录检查目标系统二进制
+${TARGET}-readelf -l ${CLFS}/bin/ls | grep interpreter
+ls ${CLFS}/lib/ld-linux-riscv64*.so.1
+
+# [Guest] 在已启动目标系统内检查
+readelf -l /bin/ls | grep interpreter
+ls /lib/ld-linux-riscv64*.so.1
 ```
 
-**参考**：AvrovaDonz2026 的实践记录
+若解释器路径不一致，请按 `readelf` 输出修正 rootfs 内链接器位置。
 
 ---
 
@@ -144,17 +146,17 @@ chroot "${CLFS}" /tools/bin/bash
 
 **解决**：
 ```bash
-# 1. 复制 QEMU 解释器
+# 1. [Host] 复制 QEMU 解释器到目标 rootfs
 cp /usr/bin/qemu-riscv64-static ${CLFS}/usr/bin/
 
-# 2. 注册 binfmt_misc（需要 root）
-echo ':riscv64:M::\x7fELF\x02\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\xf3\x00:\xff\xff\xff\xff\xff\xff\xff\x00\xff\xff\xff\xff\xff\xff\xff\xff\xfe\xff\xff\xff:/usr/bin/qemu-riscv64-static:CF' > /proc/sys/fs/binfmt_misc/register
+# 2. [Host] 优先使用系统工具注册 binfmt（需要 root）
+sudo update-binfmts --enable qemu-riscv64
 
-# 验证注册状态
-cat /proc/sys/fs/binfmt_misc/riscv64
+# 3. 验证注册状态
+cat /proc/sys/fs/binfmt_misc/qemu-riscv64 | head -n 3
 ```
 
-**补充**：如果已安装 `qemu-user-static` 包，可以：
+**补充**：如果你的发行版使用 systemd-binfmt，可以：
 ```bash
 # 检查服务状态
 systemctl status systemd-binfmt.service
@@ -200,13 +202,13 @@ CONFIG_HVC_RISCV_SBI=y
 
 **解决**：
 
-**purofle 发现**：glibc 2.42 需要 QEMU 支持 termios2，否则程序会崩溃。
+**purofle 发现**：在部分版本组合下，glibc 2.42 需要 QEMU 提供 termios2 支持，否则程序可能崩溃。
 
 ```bash
 # 检查 QEMU 版本
 qemu-system-riscv64 --version
 
-# 如果使用的是 glibc 2.42+，需要 QEMU 10.1.2+ 或打补丁的版本
+# 如果使用 glibc 2.42+，建议优先使用较新 QEMU（或使用包含 termios2 支持的补丁版本）
 # 补丁地址:
 # https://github.com/qemu/qemu/compare/v10.1.2...dramforever:qemu:add-termios2
 
@@ -217,66 +219,84 @@ qemu-system-riscv64 --version
 
 ---
 
-## 📦 BusyBox 问题
+## ⚙️ systemd 启动问题
 
-### Q9: BusyBox tc applet 编译失败
+### Q9: systemd 启动后进入 emergency mode
 
-**症状**：
-```
-tc.c: 错误: 'TCA_CBQ_MAX' 未声明
-```
+**症状**：系统启动后进入 `emergency mode`，或提示挂载/依赖失败。  
 
-**原因**：BusyBox 1.36.1 的 `tc` (traffic control) applet 与 Linux 6.6.10+ 头文件不兼容。
+**常见原因**：
+1. `/etc/fstab` 设备项与实际块设备不一致
+2. 内核参数 `root=` 指向错误设备
+3. 根目录关键挂载点状态异常（`/proc`、`/sys`、`/dev`）
 
-**解决**：禁用 tc applet：
+**排查与修复**：
 ```bash
-cd ${CLFS}/sources/busybox-1.36.1
-make menuconfig
-# Networking Utilities -> tc -> 取消选择
+# [Guest] 1) 查看失败单元
+systemctl --failed
 
-# 或直接修改 .config
-sed -i 's/CONFIG_TC=y/CONFIG_TC=n/' .config
+# [Guest] 2) 查看本次启动错误日志
+journalctl -b -p err
+
+# [Guest] 3) 核对设备与 fstab
+lsblk -f
+cat /etc/fstab
+
+# [Guest] 4) 修复后重载配置并恢复默认目标
+systemctl daemon-reload
+systemctl default
 ```
 
-**参考**：AvrovaDonz2026 的解决方案
+可用 `systemctl is-system-running` 验证整体状态（`running` 为最佳，`degraded` 需继续查 failed unit）。
 
 ---
 
-### Q10: BusyBox 静态链接失败
+### Q10: chroot 环境执行 systemctl 报 “Failed to connect to bus”
 
 **症状**：
 ```
-undefined reference to `__stack_chk_guard'
+System has not been booted with systemd as init system (PID 1). Can't operate.
+Failed to connect to bus: Host is down
 ```
 
-**原因**：某些宿主机启用了栈保护，但静态链接时缺少相关库。
+**原因**：chroot 中 PID 1 通常不是 systemd，这是预期行为。  
 
-**解决**：
+**正确做法**：
+1. chroot 阶段只做文件与配置准备，不以 `systemctl` 成功为标准。  
+2. 在 QEMU 正式启动后再验证 systemd 行为。  
+
 ```bash
-# 在 BusyBox .config 中添加
-CONFIG_EXTRA_CFLAGS="-fno-stack-protector"
-
-# 或导出环境变量
-export CFLAGS="-fno-stack-protector"
-make -j$(nproc)
+# 在启动后的目标系统里执行
+ps -p 1 -o comm=
+systemctl status
+systemctl list-units --type=service --state=running | head
 ```
+
+`ps -p 1` 输出必须是 `systemd`，systemd 相关检查才有意义。
 
 ---
 
-### Q11: /bin/sh: can't access tty; job control turned off
+### Q11: 串口没有出现登录提示（无 getty）
 
-**症状**：启动后出现警告，但系统可以正常使用。
+**症状**：内核日志输出正常，但迟迟没有 `login:`。  
 
-**原因**：在裸串口控制台（无 TTY 分配器）上运行时，shell 无法进行作业控制。
+**常见原因**：
+1. 内核参数缺少 `console=ttyS0`
+2. `serial-getty@ttyS0.service` 未启用
+3. 内核未启用串口控制台支持
 
-**解决**：这是预期行为，可以忽略。如需消除警告，确保：
+**排查与修复**：
 ```bash
-# 1. /dev/console 设备存在
-ls -la ${CLFS}/dev/console  # 应该有 c 5 1
+# [Guest] 1) 检查内核参数
+cat /proc/cmdline
 
-# 2. init 正确启动 shell
-exec /bin/sh -l  # 使用登录 shell
+# [Guest] 2) 检查并启用串口 getty
+systemctl status serial-getty@ttyS0.service
+systemctl enable serial-getty@ttyS0.service
+systemctl restart serial-getty@ttyS0.service
 ```
+
+若仍失败，回查内核配置：`CONFIG_SERIAL_8250=y` 与 `CONFIG_SERIAL_8250_CONSOLE=y`。
 
 ---
 
@@ -313,11 +333,11 @@ ls -l ${CLFS}/usr/lib/libmount.so.1
 
 **症状**：chroot 成功后，没有任何提示符或输出。
 
-**原因**：没有安装 shell（bash 或 busybox ash）。
+**原因**：没有安装可用 shell（通常是 `bash`），或 `/bin/sh` 未正确指向。
 
 **解决**：
 
-**Jvlegod 提醒**：必须在 chroot 前确保目标系统里至少有一个可用 shell（`bash` 或 BusyBox `ash`）。
+**Jvlegod 提醒**：必须在 chroot 前确保目标系统里至少有一个可用 shell（推荐 `bash`）。
 
 ```bash
 # 先检查 shell 是否存在
@@ -326,8 +346,7 @@ test -x ${CLFS}/bin/bash || test -x ${CLFS}/bin/sh || echo "缺少 shell"
 # 若已安装 bash，确保 /bin/sh 指向可用 shell
 ln -sf bash ${CLFS}/bin/sh
 
-# 如果你走 BusyBox 路线，也可改为：
-# ln -sf busybox ${CLFS}/bin/sh
+# 不建议将 /bin/sh 指向非主线 shell 方案
 ```
 
 ---
@@ -380,12 +399,12 @@ pivot_root ${NEW_ROOT} ${NEW_ROOT}/mnt
 exec chroot . /bin/sh < /dev/console > /dev/console 2>&1
 ```
 
-或使用 `switch_root`（BusyBox 提供）：
+或使用 `switch_root`（常见于 util-linux / initramfs 工具集）：
 ```bash
 # 在 initramfs 中
 mount -t devtmpfs devtmpfs /dev
 # ... 找到真实 root 并挂载到 /newroot ...
-switch_root /newroot /sbin/init
+exec switch_root /newroot /sbin/init
 ```
 
 ---
@@ -420,20 +439,23 @@ mount --move /sys /newroot/sys
 **purofle 的完整方案**：
 
 ```bash
-# 1. 启动 QEMU 时添加网络设备
+# 1. [Host] 启动 QEMU 时添加网络设备
 qemu-system-riscv64 \
     ... \
     -netdev user,id=net0,hostfwd=tcp::2222-:22 \
     -device virtio-net-device,netdev=net0
 
-# 2. 确保内核支持 VirtIO_NET
+# 2. [Host] 确保内核支持 VirtIO_NET
 CONFIG_VIRTIO_NET=y
 
-# 3. 在 guest 中配置网络
+# 3. [Guest] 配置网络（任选其一）
 ip link set dev eth0 up
-dhcpcd eth0  # 或使用: ip addr add 10.0.2.15/24 dev eth0
+dhcpcd eth0
+# 或静态地址（QEMU usernet 常见网段）
+ip addr add 10.0.2.15/24 dev eth0
+ip route add default via 10.0.2.2 dev eth0
 
-# 4. 配置 DNS
+# 4. [Guest] 配置 DNS
 echo "nameserver 8.8.8.8" > /etc/resolv.conf
 ```
 
@@ -465,15 +487,13 @@ make-ca -g
 ### Q19: rootfs 文件应该多大？
 
 **建议大小**：
-- **最小系统**（BusyBox static）：~5-10MB
-- **带 glibc 的基础系统**：~50-100MB
-- **包含基本工具链**：~200-500MB
+- **主线最小可用系统**（glibc + systemd）：~150-300MB
+- **带常用用户态工具**：~300-600MB
+- **包含开发/调试工具**：~600MB+
 
 **实际数据**：
 | 同学 | C库 | Init | 大小 |
 |------|-----|------|------|
-| AvrovaDonz2026 | musl | BusyBox | ~2MB |
-| Jvlegod | glibc | SysVinit | ~100MB+ |
 | purofle | glibc | systemd | ~500MB+ |
 
 **优化**：
@@ -495,6 +515,7 @@ zstd -T0 --ultra -22 rootfs.tar
 ### Q20: 如何生成 SHA256？
 
 ```bash
+# [Host] 先设置你的 GitHub ID
 GITHUB_ID=your_github_id
 
 # Linux
@@ -506,61 +527,77 @@ shasum -a 256 rootfs-riscv64-lfs-${GITHUB_ID}.tar.zst
 
 ---
 
-## 💡 调试技巧
+## 📌 最后排查清单
 
-### 查看 ELF 依赖
-
-```bash
-# 查看动态链接器路径
-readelf -l /path/to/binary | grep interpreter
-
-# 查看动态库依赖
-readelf -d /path/to/binary | grep NEEDED
-
-# 使用交叉 readelf
-${TARGET}-readelf -a /path/to/binary
-```
-
-### 启用详细日志
-
-```bash
-# 内核启动日志
--append "debug initcall_debug loglevel=8"
-
-# strace（需要编译安装）
-strace -f /bin/command
-
-# BusyBox 调试
-sh -x /init
-```
-
-### QEMU 调试
-
-```bash
-# 停止在第一条指令
--S -s
-
-# 然后使用 GDB 连接
-target remote localhost:1234
-
-# 单核调试（避免多核干扰）
--smp 1
-```
+1. 先看 `readelf -l` 的解释器路径是否与 rootfs 一致。
+2. 再看 `dmesg` 与启动参数，确认内核驱动和 `root=` 设备名匹配。
+3. 对照 `submissions/` 的已成功案例，逐项比对差异。
 
 ---
 
-## 🆘 如果以上都无法解决
+## 🧪 可靠性附录（主线路线）
 
-别担心，遇到困难是正常的！每个完成 LFS 的人都曾经历过这些。试试这些方法：
+下面是一组可直接复用的“最小验证集”，用于确认 `glibc + systemd` 主线是否真的跑通。
 
-1. 🔍 **仔细检查命令** —— 复制粘贴有时会有隐藏字符
-2. 📋 **查看日志** —— `dmesg` 和 `/var/log/` 会告诉你真相
-3. 👀 **对比成功案例** —— `submissions/` 目录下有很多参考
-4. 🎯 **逐步回退** —— 一次只改一个地方，缩小问题范围
-5. 🤝 **寻求帮助** —— 在 PR 中描述问题，社区会支持你
+### A. 启动链路最小验证
 
-**记住**：每一个问题都是学习的机会。当你解决它，你就比昨天更强了！
+```bash
+uname -m                       # 期望: riscv64
+ps -p 1 -o comm=               # 期望: systemd
+cat /proc/cmdline              # 期望包含: console=ttyS0 和正确 root=
+```
 
----
+### B. 链接器与动态库验证
 
-*这份 FAQ 凝聚了众多先行者的经验 —— 你并不孤单！* 💪
+```bash
+readelf -l /bin/ls | grep interpreter
+ls -l /lib/ld-linux-riscv64*.so.1
+ldd /bin/ls
+```
+
+判定标准：
+- `interpreter` 路径存在于 rootfs 中。
+- `ldd /bin/ls` 不出现 `not found`。
+
+### C. systemd 健康度验证
+
+```bash
+systemctl is-system-running
+systemctl --failed
+journalctl -b -p err --no-pager | tail -n 50
+```
+
+判定标准：
+- `is-system-running` 为 `running` 或 `degraded`。
+- 如为 `degraded`，`systemctl --failed` 必须可解释且可修复。
+
+### D. 关键挂载点验证
+
+```bash
+findmnt / /proc /sys /dev
+mount | grep -E ' on /(proc|sys|dev) '
+```
+
+判定标准：
+- `/proc`、`/sys`、`/dev` 均已正确挂载。
+- 不存在“只读导致服务初始化失败”的异常。
+
+### E. 提交前快检（5 条）
+
+```bash
+# [Guest] 1) glibc 链接器检查
+test -e /lib/ld-linux-riscv64-lp64d.so.1 && echo "glibc linker OK"
+
+# [Guest] 2) PID 1 是否为 systemd
+test "$(ps -p 1 -o comm=)" = "systemd" && echo "systemd PID1 OK"
+
+# [Guest] 3) 失败单元计数
+systemctl --failed --no-legend | wc -l
+
+# [Host] 4) 产物哈希
+GITHUB_ID=your_github_id
+sha256sum rootfs-riscv64-lfs-${GITHUB_ID}.tar.zst
+
+# [Host] 5) 产物文件类型
+file rootfs-riscv64-lfs-${GITHUB_ID}.tar.zst
+```

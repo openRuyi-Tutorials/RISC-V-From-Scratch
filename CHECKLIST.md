@@ -46,7 +46,7 @@ echo "GITHUB_ID=${GITHUB_ID}"
 
 ### 基础系统检查
 
-- [ ] BusyBox（或 coreutils）已安装且可执行
+- [ ] coreutils 已安装且可执行
   ```bash
   ${TARGET}-readelf -h ${CLFS}/bin/ls | grep Machine
   # 应显示: RISC-V
@@ -56,12 +56,9 @@ echo "GITHUB_ID=${GITHUB_ID}"
   ```bash
   # glibc
   ls ${CLFS}/lib/ld-linux-riscv64*.so.1
-  # musl
-  ls ${CLFS}/lib/libc.so
-  ls ${CLFS}/lib/ld-musl-riscv64.so.1
   ```
 
-- [ ] 若目标是参与 openRuyi，已完成 glibc 关键链路
+- [ ] 若目标是参与目标发行版，已完成 glibc 关键链路
   ```bash
   test -e ${CLFS}/lib/ld-linux-riscv64-lp64d.so.1 && echo "glibc linker OK"
   test -x ${CLFS}/bin/bash && echo "bash OK"
@@ -176,12 +173,23 @@ echo "GITHUB_ID=${GITHUB_ID}"
 - [ ] 命令可以复制粘贴执行
 - [ ] 包含了启动 QEMU 的完整参数
 - [ ] 说明了如何退出 QEMU（Ctrl+A X）
+- [ ] 在干净环境按卷轴步骤完整演练过，确认可启动并进入可用 shell
+- [ ] 已写清运行前置条件（QEMU 版本、宿主机依赖、内核/镜像来源）
+- [ ] 步骤不依赖本机私有路径、历史缓存或未说明的本地文件
 
 ### 构建过程（推荐）
 
 - [ ] 说明了参考的教程/版本
 - [ ] 列出了关键组件版本（gcc/glibc/内核等）
 - [ ] 说明了与 vanilla LFS 的差异
+
+### 自由发挥 / 花活（推荐）
+
+- [ ] 卷轴中有独立章节描述额外工程动作（优化/自动化/加固/可观测性等）
+- [ ] 明确写出动机与取舍（为什么这么做，而不是只贴结果）
+- [ ] 给出至少一项可验证证据（命令、配置片段或前后对比数据）
+- [ ] 说明了复现步骤（他人按步骤可重复你的结果）
+- [ ] 给出风险与回滚方案（保证主线可恢复）
 
 ### 安全声明（必须）
 
