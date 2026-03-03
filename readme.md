@@ -21,7 +21,7 @@
 
 ## 📘 什么是 LFS
 
-**LFS（Linux From Scratch）**不是“装一个现成发行版”，而是你亲手把系统一层层搭起来：
+<strong>LFS（Linux From Scratch）</strong>不是“装一个现成发行版”，而是你亲手把系统一层层搭起来：
 
 - 工具链（binutils/GCC）怎么从无到有
 - C 库（glibc）如何成为用户态程序运行基础
