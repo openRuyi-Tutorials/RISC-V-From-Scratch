@@ -6,16 +6,43 @@
 > 
 > 📌 **变量说明**：本文命令默认使用 `${CLFS}` 与 `${TARGET}`。若你使用不同变量名（如 `$LFS`），请按需替换。
 > 
-> 🎯 **路线建议**：新人统一按 `glibc + systemd` 主线执行；本文排障也以该主线为准。
+> 🎯 **主线说明**：新人统一按 `glibc + systemd` 执行；本文排障也以该主线为准。
 >
 > ⚠️ **代码示例声明**：本文所有命令与脚本片段均为实例，仅用于说明排障思路，不保证可直接在任意环境执行。
 >
 > ✍️ **文档署名**：本文档由 **Avrova Donz** 借助 **ChatGPT 5.3** 完成。
 
+## 📑 目录
+
+- [Q1: GCC 编译报错 "flex: not found" / "bison: not found"](#q1)
+- [Q2: GCC 编译报错 "cannot find cc1"](#q2)
+- [Q3: 程序提示 "not found" 但文件实际存在](#q3)
+- [Q4: configure 报错 "cannot guess build type"](#q4)
+- [Q5: VFS: unable to mount root fs](#q5)
+- [Q6: Chroot 后 "Exec format error"](#q6)
+- [Q7: 内核启动后黑屏/无输出](#q7)
+- [Q8: 程序运行崩溃 / 无法启动 shell](#q8)
+- [Q9: systemd 启动后进入 emergency mode](#q9)
+- [Q10: chroot 环境执行 systemctl 报 “Failed to connect to bus”](#q10)
+- [Q11: 串口没有出现登录提示（无 getty）](#q11)
+- [Q12: util-linux 安装报错 "chgrp: Operation not permitted"](#q12)
+- [Q13: 进入 chroot 后 "黑屏一片"](#q13)
+- [Q14: GCC Stage 2 构建后仍不支持 C++ 线程](#q14)
+- [Q15: pivot_root 失败](#q15)
+- [Q16: initramfs 到 rootfs 切换后服务无法启动](#q16)
+- [Q17: QEMU 中网络不通](#q17)
+- [Q18: curl 访问 https 网站报错](#q18)
+- [Q19: rootfs 文件应该多大？](#q19)
+- [Q20: 如何生成 SHA256？](#q20)
+- [📌 最后排查清单](#final-checklist)
+- [🧪 可靠性附录（主线流程）](#reliability-appendix)
+
 ---
 
+<a id="toolchain"></a>
 ## 🔧 工具链构建问题
 
+<a id="q1"></a>
 ### Q1: GCC 编译报错 "flex: not found" / "bison: not found"
 
 **症状**：
@@ -37,6 +64,7 @@ sudo dnf install flex bison bc
 
 ---
 
+<a id="q2"></a>
 ### Q2: GCC 编译报错 "cannot find cc1"
 
 **症状**：
@@ -55,6 +83,7 @@ ${TARGET}-gcc -B${CLFS}/cross-tools/libexec/gcc/${TARGET}/13.2.0/ ...
 
 ---
 
+<a id="q3"></a>
 ### Q3: 程序提示 "not found" 但文件实际存在
 
 **症状**：二进制文件存在，但执行时报 `not found` 或动态链接错误。  
@@ -76,6 +105,7 @@ ls /lib/ld-linux-riscv64*.so.1
 
 ---
 
+<a id="q4"></a>
 ### Q4: configure 报错 "cannot guess build type"
 
 **症状**：
@@ -97,8 +127,10 @@ configure: error: cannot guess build type; you must specify one
 
 ---
 
+<a id="boot"></a>
 ## 🚀 启动问题
 
+<a id="q5"></a>
 ### Q5: VFS: unable to mount root fs
 
 **症状**：
@@ -132,6 +164,7 @@ Please append a correct "root=" boot option
 
 ---
 
+<a id="q6"></a>
 ### Q6: Chroot 后 "Exec format error"
 
 **症状**：
@@ -170,6 +203,7 @@ cat /proc/sys/fs/binfmt_misc/qemu-riscv64 | head -1
 
 ---
 
+<a id="q7"></a>
 ### Q7: 内核启动后黑屏/无输出
 
 **症状**：QEMU 启动后没有任何输出，或只有早期 printk。
@@ -194,6 +228,7 @@ CONFIG_HVC_RISCV_SBI=y
 
 ---
 
+<a id="q8"></a>
 ### Q8: 程序运行崩溃 / 无法启动 shell
 
 **症状**：内核启动正常，但运行用户程序时崩溃或卡住。
@@ -219,8 +254,10 @@ qemu-system-riscv64 --version
 
 ---
 
+<a id="systemd-boot"></a>
 ## ⚙️ systemd 启动问题
 
+<a id="q9"></a>
 ### Q9: systemd 启动后进入 emergency mode
 
 **症状**：系统启动后进入 `emergency mode`，或提示挂载/依赖失败。  
@@ -251,6 +288,7 @@ systemctl default
 
 ---
 
+<a id="q10"></a>
 ### Q10: chroot 环境执行 systemctl 报 “Failed to connect to bus”
 
 **症状**：
@@ -276,6 +314,7 @@ systemctl list-units --type=service --state=running | head
 
 ---
 
+<a id="q11"></a>
 ### Q11: 串口没有出现登录提示（无 getty）
 
 **症状**：内核日志输出正常，但迟迟没有 `login:`。  
@@ -300,8 +339,10 @@ systemctl restart serial-getty@ttyS0.service
 
 ---
 
+<a id="build"></a>
 ## 🔧 构建问题
 
+<a id="q12"></a>
 ### Q12: util-linux 安装报错 "chgrp: Operation not permitted"
 
 **症状**：
@@ -329,6 +370,7 @@ ls -l ${CLFS}/usr/lib/libmount.so.1
 
 ---
 
+<a id="q13"></a>
 ### Q13: 进入 chroot 后 "黑屏一片"
 
 **症状**：chroot 成功后，没有任何提示符或输出。
@@ -351,6 +393,7 @@ ln -sf bash ${CLFS}/bin/sh
 
 ---
 
+<a id="q14"></a>
 ### Q14: GCC Stage 2 构建后仍不支持 C++ 线程
 
 **症状**：编译 C++ 程序时，`<thread>` 头文件找不到或链接失败。
@@ -378,8 +421,10 @@ ln -sf bash ${CLFS}/bin/sh
 
 ---
 
+<a id="switching"></a>
 ## 🔄 Initramfs/Rootfs 切换问题
 
+<a id="q15"></a>
 ### Q15: pivot_root 失败
 
 **症状**：
@@ -409,6 +454,7 @@ exec switch_root /newroot /sbin/init
 
 ---
 
+<a id="q16"></a>
 ### Q16: initramfs 到 rootfs 切换后服务无法启动
 
 **症状**：切换后系统无法找到设备、网络不工作等。
@@ -428,8 +474,10 @@ mount --move /sys /newroot/sys
 
 ---
 
+<a id="network"></a>
 ## 🌐 网络配置问题
 
+<a id="q17"></a>
 ### Q17: QEMU 中网络不通
 
 **症状**：无法 ping 通外网。
@@ -461,6 +509,7 @@ echo "nameserver 8.8.8.8" > /etc/resolv.conf
 
 ---
 
+<a id="q18"></a>
 ### Q18: curl 访问 https 网站报错
 
 **症状**：
@@ -482,8 +531,10 @@ make-ca -g
 
 ---
 
+<a id="submission"></a>
 ## 📋 提交相关问题
 
+<a id="q19"></a>
 ### Q19: rootfs 文件应该多大？
 
 **建议大小**：
@@ -512,6 +563,7 @@ zstd -T0 --ultra -22 rootfs.tar
 
 ---
 
+<a id="q20"></a>
 ### Q20: 如何生成 SHA256？
 
 ```bash
@@ -527,6 +579,7 @@ shasum -a 256 rootfs-riscv64-lfs-${GITHUB_ID}.tar.zst
 
 ---
 
+<a id="final-checklist"></a>
 ## 📌 最后排查清单
 
 1. 先看 `readelf -l` 的解释器路径是否与 rootfs 一致。
@@ -535,7 +588,8 @@ shasum -a 256 rootfs-riscv64-lfs-${GITHUB_ID}.tar.zst
 
 ---
 
-## 🧪 可靠性附录（主线路线）
+<a id="reliability-appendix"></a>
+## 🧪 可靠性附录（主线流程）
 
 下面是一组可直接复用的“最小验证集”，用于确认 `glibc + systemd` 主线是否真的跑通。
 
