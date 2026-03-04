@@ -35,22 +35,47 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install markdown
 
-      - name: Archive current index.html
+      - name: Archive current index.html (if exists)
         run: |
-          test -f index.html
-          python - <<'PY'
-          import zipfile
-          with zipfile.ZipFile("index.html.zip", "w", compression=zipfile.ZIP_DEFLATED) as zf:
-              zf.write("index.html", arcname="index.html")
-          PY
+          if [ -f index.html ]; then
+            python - <<'PY'
+            import zipfile
+            with zipfile.ZipFile("index.html.zip", "w", compression=zipfile.ZIP_DEFLATED) as zf:
+                zf.write("index.html", arcname="index.html")
+            PY
+          else
+            echo "No existing index.html found in repository checkout."
+          fi
 
       - name: Generate index.html
         run: python .scripts/generate_index.py --output index.html
 
+      - name: Validate generated index.html
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          data = Path("index.html").read_bytes()
+          if data.startswith(b"PK\x03\x04"):
+              raise SystemExit("index.html is a zip stream, expected HTML text.")
+          head = data[:512].decode("utf-8", errors="ignore").lower()
+          if "<html" not in head and "<!doctype html" not in head:
+              raise SystemExit("index.html does not look like HTML content.")
+          PY
+
+      - name: Ensure index.html.zip exists
+        run: |
+          if [ ! -f index.html.zip ]; then
+            python - <<'PY'
+            import zipfile
+            with zipfile.ZipFile("index.html.zip", "w", compression=zipfile.ZIP_DEFLATED) as zf:
+                zf.write("index.html", arcname="index.html")
+            PY
+          fi
+
       - name: Upload index.html artifact
         uses: actions/upload-artifact@v4
         with:
-          name: index.html
+          name: index-bundle
           path: |
             index.html
             index.html.zip
