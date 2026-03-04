@@ -50,7 +50,7 @@ cd release
     - C 库: glibc 2.40
     - 初始化系统: systemd 255
     - 编译器: GCC 13.2.0
-    - 包管理器: **pacman 6.0.2** (基于 OpenSSL 3.0.13, libarchive 3.7.2, curl 8.6.0)
+    - 包管理器: pacman 6.0.2 (基于 OpenSSL 3.0.13, libarchive 3.7.2, curl 8.6.0， 未全部实现)
 - 与“原教旨 LFS”的偏离:
     - **Merged /usr**: 采用了现代 Linux 的合并 /usr 架构。
     - **Multi-arch Path Compatibility**: 针对 RISC-V 64 位 Glibc 默认搜索 `/lib64/lp64d` 的特性，通过软链接实现了路径兼容。
@@ -70,6 +70,7 @@ cd release
 - [x] 完成 Stage 3: 最终系统构建
 - [x] 配置 systemd 非交互引导
 - [x] 修复 login 程序缺失导致的无限重启
+- [ ]  pacman 无法下载需要证书的包，目前暂时也无法获取包
 
 ## 安全声明
 
