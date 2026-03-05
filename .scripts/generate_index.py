@@ -30,6 +30,7 @@ DOCS = [
     DocSpec("CHECKLIST.md", "提交检查", "doc-checklist"),
     DocSpec("README.zh-CN.md", "卷轴模板", "doc-template"),
 ]
+REPO_URL = "https://github.com/openRuyi-Project/RISC-V-From-Scratch"
 
 DOC_ID_BY_BASENAME = {Path(item.path).name: item.section_id for item in DOCS}
 MD_LINK_RE = re.compile(r"\(([^)]+\.md)(#[^)]+)?\)", re.IGNORECASE)
@@ -64,7 +65,6 @@ def render_markdown_to_html(markdown_text: str) -> str:
 
 
 def build_html(root: Path) -> str:
-    top_nav_items = []
     side_nav_items = []
     section_items = []
 
@@ -77,14 +77,13 @@ def build_html(root: Path) -> str:
         normalized_md = rewrite_local_md_links(raw_md)
         rendered = render_markdown_to_html(normalized_md)
 
-        top_nav_items.append(f'<a href="#{doc.section_id}">{doc.label}</a>')
         side_nav_items.append(f'<a href="#{doc.section_id}">{doc.label}</a>')
         section_items.append(
             f"""
             <section id="{doc.section_id}" class="doc-card">
               <header class="doc-header">
                 <h2>{doc.label}</h2>
-                <a class="source-link" href="{doc.path}">查看源文件</a>
+                <a class="source-link" href="{REPO_URL}" target="_blank" rel="noopener noreferrer">回到GitHub仓库</a>
               </header>
               <article class="markdown-body">
                 {rendered}
@@ -96,7 +95,6 @@ def build_html(root: Path) -> str:
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
     side_nav_html = "\n".join(side_nav_items)
-    top_nav_html = " ".join(top_nav_items)
 
     return f"""<!DOCTYPE html>
 <html lang="zh-CN">
@@ -135,9 +133,10 @@ def build_html(root: Path) -> str:
       border-bottom: 1px solid var(--border);
     }}
     .topbar-inner {{
-      max-width: 1320px;
-      margin: 0 auto;
-      padding: 14px 20px;
+      width: 100%;
+      max-width: none;
+      margin: 0;
+      padding: 14px 24px;
       display: flex;
       flex-wrap: wrap;
       gap: 12px 16px;
@@ -148,31 +147,11 @@ def build_html(root: Path) -> str:
       font-weight: 700;
       font-size: 18px;
     }}
-    .nav {{
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }}
-    .nav-top {{
-      display: none;
-    }}
-    .nav a {{
-      text-decoration: none;
-      color: var(--text);
-      font-size: 14px;
-      padding: 6px 10px;
-      border-radius: 999px;
-      border: 1px solid var(--border);
-      background: #fff;
-    }}
-    .nav a:hover {{
-      border-color: var(--accent);
-      color: var(--accent);
-    }}
     .layout {{
-      max-width: 1320px;
-      margin: 0 auto;
-      padding: 18px 20px 48px;
+      width: 100%;
+      max-width: none;
+      margin: 0;
+      padding: 18px 24px 48px;
       display: grid;
       grid-template-columns: 280px minmax(0, 1fr);
       gap: 16px;
@@ -225,6 +204,48 @@ def build_html(root: Path) -> str:
       background: #fff;
       color: var(--muted);
       font-size: 13px;
+    }}
+    .mobile-toc {{
+      display: none;
+      margin-bottom: 12px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #fff;
+      overflow: hidden;
+    }}
+    .mobile-toc > summary {{
+      cursor: pointer;
+      padding: 10px 12px;
+      font-weight: 600;
+      list-style: none;
+      user-select: none;
+      border-bottom: 1px solid transparent;
+    }}
+    .mobile-toc[open] > summary {{
+      border-bottom-color: var(--border);
+      background: #f8fafc;
+    }}
+    .mobile-toc > summary::-webkit-details-marker {{
+      display: none;
+    }}
+    .mobile-toc-nav {{
+      display: flex;
+      flex-direction: column;
+      padding: 8px;
+      gap: 4px;
+    }}
+    .mobile-toc-nav a {{
+      text-decoration: none;
+      color: var(--text);
+      font-size: 14px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid transparent;
+    }}
+    .mobile-toc-nav a:hover {{
+      color: var(--accent);
+      border-color: var(--border);
+      background: #f8fafc;
     }}
     .doc-card {{
       background: var(--card);
@@ -321,15 +342,15 @@ def build_html(root: Path) -> str:
       color: #334155;
     }}
     @media (max-width: 960px) {{
-      .nav-top {{
-        display: flex;
-      }}
       .layout {{
         grid-template-columns: 1fr;
         padding: 14px 12px 40px;
       }}
       .sidebar {{
         display: none;
+      }}
+      .mobile-toc {{
+        display: block;
       }}
     }}
     @media (max-width: 768px) {{
@@ -350,9 +371,6 @@ def build_html(root: Path) -> str:
   <header class="topbar">
     <div class="topbar-inner">
       <div class="title">RISC-V From Scratch 文档站</div>
-      <nav class="nav nav-top">
-        {top_nav_html}
-      </nav>
     </div>
   </header>
 
@@ -366,6 +384,12 @@ def build_html(root: Path) -> str:
       </div>
     </aside>
     <section class="content">
+      <details class="mobile-toc">
+        <summary>目录</summary>
+        <nav class="mobile-toc-nav">
+          {side_nav_html}
+        </nav>
+      </details>
       <div class="banner">
         本页由 <code>.scripts/generate_index.py</code> 自动生成。生成时间：{generated_at}
       </div>
