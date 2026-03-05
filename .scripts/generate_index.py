@@ -3,6 +3,11 @@
 
 This script builds a single documentation portal page from root Markdown files.
 It is intended to run both locally and in GitHub Actions.
+
+Acknowledgements:
+- Mobile navigation interaction/layout inspiration: https://mtf.wiki
+- CI deployment and documentation presentation inspiration: NJU PA course
+  (ics-pa-gitbook / ICS2025)
 """
 
 from __future__ import annotations
