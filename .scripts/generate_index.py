@@ -64,7 +64,8 @@ def render_markdown_to_html(markdown_text: str) -> str:
 
 
 def build_html(root: Path) -> str:
-    nav_items = []
+    top_nav_items = []
+    side_nav_items = []
     section_items = []
 
     for doc in DOCS:
@@ -76,7 +77,8 @@ def build_html(root: Path) -> str:
         normalized_md = rewrite_local_md_links(raw_md)
         rendered = render_markdown_to_html(normalized_md)
 
-        nav_items.append(f'<a href="#{doc.section_id}">{doc.label}</a>')
+        top_nav_items.append(f'<a href="#{doc.section_id}">{doc.label}</a>')
+        side_nav_items.append(f'<a href="#{doc.section_id}">{doc.label}</a>')
         section_items.append(
             f"""
             <section id="{doc.section_id}" class="doc-card">
@@ -92,6 +94,9 @@ def build_html(root: Path) -> str:
         )
 
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+
+    side_nav_html = "\n".join(side_nav_items)
+    top_nav_html = " ".join(top_nav_items)
 
     return f"""<!DOCTYPE html>
 <html lang="zh-CN">
@@ -124,13 +129,13 @@ def build_html(root: Path) -> str:
     .topbar {{
       position: sticky;
       top: 0;
-      z-index: 10;
+      z-index: 20;
       backdrop-filter: blur(8px);
       background: rgba(245, 247, 251, 0.92);
       border-bottom: 1px solid var(--border);
     }}
     .topbar-inner {{
-      max-width: 1120px;
+      max-width: 1320px;
       margin: 0 auto;
       padding: 14px 20px;
       display: flex;
@@ -148,6 +153,9 @@ def build_html(root: Path) -> str:
       gap: 8px;
       flex-wrap: wrap;
     }}
+    .nav-top {{
+      display: none;
+    }}
     .nav a {{
       text-decoration: none;
       color: var(--text);
@@ -161,10 +169,53 @@ def build_html(root: Path) -> str:
       border-color: var(--accent);
       color: var(--accent);
     }}
-    main {{
-      max-width: 1120px;
+    .layout {{
+      max-width: 1320px;
       margin: 0 auto;
       padding: 18px 20px 48px;
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      gap: 16px;
+      align-items: start;
+    }}
+    .sidebar {{
+      position: sticky;
+      top: 78px;
+    }}
+    .sidebar-card {{
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+      padding: 12px;
+    }}
+    .sidebar-title {{
+      font-size: 12px;
+      color: var(--muted);
+      margin: 2px 4px 8px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }}
+    .side-nav {{
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }}
+    .side-nav a {{
+      text-decoration: none;
+      color: var(--text);
+      font-size: 14px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid transparent;
+    }}
+    .side-nav a:hover {{
+      color: var(--accent);
+      border-color: var(--border);
+      background: #f8fafc;
+    }}
+    .content {{
+      min-width: 0;
     }}
     .banner {{
       margin-bottom: 14px;
@@ -269,12 +320,21 @@ def build_html(root: Path) -> str:
       background: #f8fafc;
       color: #334155;
     }}
+    @media (max-width: 960px) {{
+      .nav-top {{
+        display: flex;
+      }}
+      .layout {{
+        grid-template-columns: 1fr;
+        padding: 14px 12px 40px;
+      }}
+      .sidebar {{
+        display: none;
+      }}
+    }}
     @media (max-width: 768px) {{
       .topbar-inner {{
         padding: 12px 14px;
-      }}
-      main {{
-        padding: 14px 12px 40px;
       }}
       .doc-card {{
         padding: 14px;
@@ -290,17 +350,27 @@ def build_html(root: Path) -> str:
   <header class="topbar">
     <div class="topbar-inner">
       <div class="title">RISC-V From Scratch 文档站</div>
-      <nav class="nav">
-        {' '.join(nav_items)}
+      <nav class="nav nav-top">
+        {top_nav_html}
       </nav>
     </div>
   </header>
 
-  <main>
-    <div class="banner">
-      本页由 <code>.scripts/generate_index.py</code> 自动生成。生成时间：{generated_at}
-    </div>
-    {''.join(section_items)}
+  <main class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-card">
+        <div class="sidebar-title">文档导航</div>
+        <nav class="side-nav">
+          {side_nav_html}
+        </nav>
+      </div>
+    </aside>
+    <section class="content">
+      <div class="banner">
+        本页由 <code>.scripts/generate_index.py</code> 自动生成。生成时间：{generated_at}
+      </div>
+      {''.join(section_items)}
+    </section>
   </main>
 </body>
 </html>
