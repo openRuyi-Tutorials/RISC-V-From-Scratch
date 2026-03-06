@@ -9,27 +9,33 @@
 ## Rootfs 资产
 
 - 文件名: rootfs-riscv64-lfs-Leetfs.tar.zst
-- SHA256: 02954b0b4f17ca061b9f65fd796aa17fd05000e42c974971396b68d16f6608f9
+- SHA256: a7fb2bcddf141219701937f4565ec2dfe7208bb3a19fb9ee667c34fd34779e0d
 
 ## 如何从 rootfs 运行起来
 
-> 我们直接下载 rootfs 镜像~
-
 ```bash
-wget https://github.com/Leetfs/lfs-riscv/releases/download/lfs-riscv/lfs-musl-riscv64.img
+# 下载 -> 解压（略）
+
+dd if=/dev/zero of=lfs-glibc-riscv64.img bs=1M count=1024
+sudo /usr/sbin/mkfs.ext4 lfs-glibc-riscv64.img
+
+sudo mkdir -p /mnt/tmp-boot
+
+sudo mount -o loop lfs-glibc-riscv64.img /mnt/tmp-boot
+sudo cp -a rootfs/* /mnt/tmp-boot/
+sync
+sudo umount /mnt/tmp-boot
 
 qemu-system-riscv64 \
     -machine virt \
     -m 512M \
     -smp 2 \
-    -bios /usr/lib/riscv64-linux-gnu/opensbi/generic/fw_jump.bin \
-    -kernel /mnt/lfs-riscv/sources/linux-6.6.10/arch/riscv/boot/Image \
-    -drive file=/mnt/lfs-riscv/lfs-musl-riscv64.img,format=raw,if=virtio \
-    -append "root=/dev/vda rw console=ttyS0 init=/init rootwait" \
+    -bios default \
+    -kernel Image \
+    -drive file=$LFS/lfs-glibc-riscv64.img,format=raw,if=virtio \
+    -append "root=/dev/vda rw console=ttyS0 init=/usr/lib/systemd/systemd" \
     -nographic
 ```
-
-启动啦！
 
 ## fastfetch 证据
 
@@ -37,8 +43,10 @@ qemu-system-riscv64 \
 
 ## 这是如何锻造的 (LFS 过程简述)
 
+见 blog: <https://leetfs.com/tips/system/linux/riscv-lfs>
+
 - 参考的教程/版本: [Linux From Scratch - Version r12.4-97-systemd](https://linuxfromscratch.org/lfs/view/systemd/)，Donz的文档，前人的PR/blog
-- 关键配置: gcc version 13.2.0 (GCC), Linux kernel 6.6.10, libc：musl, busybox-1.36.1
+- 关键配置: gcc 15.2.0, Linux kernel 6.6.10, libxcrypt 4.5.2, GNU Bash 5.3, GNU Coreutils 9.6, util-linux 2.39.3
 
 ## 踩过的坑
 
@@ -47,6 +55,8 @@ qemu-system-riscv64 \
 确认 `root=/dev/vda` 和 `CONFIG_VIRTIO_BLK=y` 都无问题，排查发现是运行时错误的使用 `-hda` 挂载文件系统，`-hda` 是一个历史兼容参数，会被转换为`-drive if=ide`，但 riscv virt 没 ide，就会报错卡住。
 
 解决方案：改为 `-drive if=virtio`
+
+- Systemd 部分测试项硬写入，关不掉，可使用某些方法绕过（见文档）
 
 ## 安全声明
 
