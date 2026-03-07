@@ -35,7 +35,7 @@ cd cls
 ## fastfetch 证据
 
 <!-- 此处插入截图（可选） -->
-![alt text](image.png)
+![alt text](../evidence/corestudy/fastfetch.png)
 
 ## 这是如何锻造的（LFS 过程简述）
 
