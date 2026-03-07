@@ -26,9 +26,29 @@ cd cls
 
 ### 方式 1: 使用 QEMU 系统模式
 
+'''bash
+export LFS="/home/shida/clfs"
+sudo mkdir -p /mnt/clfs
+sudo mount -o loop $LFS/rootfs.ext4 /mnt/clfs
+sudo cp -av $LFS/rootfs/* /mnt/clfs/
+sudo umount /mnt/clfs
 
-运行脚本 ./start-qemu.sh。
-系统将启动并自动运行 systemd，在出现 login: 提示符时输入 root 即可直接免密进入 shell。
+export CLFS="/home/shida/clfs"
+qemu-system-riscv64 \
+    -machine virt \
+    -cpu rv64 \
+    -smp 2 \
+    -m 1G \
+    -nographic \
+    -kernel "KERNEL" \
+    -drive file=${CLFS}/rootfs.ext4,format=raw,id=hd0 \
+    -device virtio-blk-device,drive=hd0 \
+    -netdev user,id=net0 \
+    -device virtio-net-device,netdev=net0 \
+    -object rng-random,filename=/dev/urandom,id=rng0 \
+    -device virtio-rng-pci,rng=rng0 \
+    -append "root=/dev/vda rw console=ttyS0 loglevel=3 systemd.show_status=true"
+'''
 
 <!-- 可选区 -->
 
