@@ -58,7 +58,7 @@ echo "GITHUB_ID=${GITHUB_ID}"
   ls ${CLFS}/lib/ld-linux-riscv64*.so.1
   ```
 
-- [ ] 若目标是参与目标发行版，已完成 glibc 关键链路
+- [ ] 若目标是参与 RISC-V Linux 研发协作，已完成 glibc 关键链路
   ```bash
   test -e ${CLFS}/lib/ld-linux-riscv64-lp64d.so.1 && echo "glibc linker OK"
   test -x ${CLFS}/bin/bash && echo "bash OK"
@@ -182,6 +182,7 @@ echo "GITHUB_ID=${GITHUB_ID}"
 - [ ] 说明了参考的教程/版本
 - [ ] 列出了关键组件版本（gcc/glibc/内核等）
 - [ ] 说明了与 vanilla LFS 的差异
+- [ ] 若偏离默认主线（`glibc + systemd`），已明确列出与默认主线的差异点与必要补充步骤
 
 ### 自由发挥 / 花活（推荐）
 
@@ -189,6 +190,7 @@ echo "GITHUB_ID=${GITHUB_ID}"
 - [ ] 明确写出动机与取舍（为什么这么做，而不是只贴结果）
 - [ ] 给出至少一项可验证证据（命令、配置片段或前后对比数据）
 - [ ] 说明了复现步骤（他人按步骤可重复你的结果）
+- [ ] 若更换 libc 或 1 号进程，已说明与默认 `glibc + systemd` 在启动、服务管理、排障方法上的差异
 - [ ] 给出风险与回滚方案（保证主线可恢复）
 
 ### 安全声明（必须）

@@ -2,7 +2,7 @@
 
 > 🏰 **恭喜你迈出了成为系统工程师的第一步！**
 > 
-> 这里是通往 **目标发行版** 的第一道门槛，也是一段精彩技术旅程的起点。
+> 这里是通往 **RISC-V 架构上的 Linux 世界** 的第一道门槛，也是一段精彩技术旅程的起点。
 >
 > ⚠️ **代码示例声明**：本文所有命令与脚本片段均为实例，仅用于演示思路与流程。请根据你的发行版、权限模型、目录布局和版本差异自行调整，并先在隔离环境验证。
 >
@@ -13,7 +13,8 @@
 ## 🌟 目标与主线
 
 本项目目标是完成可运行的 `riscv64` LFS 系统并提交合规卷轴。  
-新人统一按 `glibc + systemd` 主线执行；完成后即可对齐目标发行版开发基线。
+新人统一按 `glibc + systemd` 主线执行；完成后即可进入 RISC-V Linux 的工程协作场景。
+本项目定位为独立的系统构建训练项目，与任何具体发行版解耦。
 
 > ✅ **验收底线（必须满足）**：任意评审者拿到你的成品（Release 资产）后，按照你卷轴中的步骤逐条执行，应能把系统跑起来并进入可用环境。
 
@@ -69,11 +70,26 @@ RISC-V-From-Scratch/
 
 > 卷轴模板以本页内嵌模板为主，同时保留 `README.zh-CN.md` 作为唯一独立模板文件。
 
+### 🌐 index.html 自动部署（GitHub Pages 官方链路）
+
+- 工作流：`.github/workflows/generate-index.yml`
+- 生成脚本：`.scripts/generate_index.py`
+- 触发条件：`readme.md`、`ROADMAP.md`、`FAQ.md`、`CHECKLIST.md`、`README.zh-CN.md` 变更后自动生成
+- 输出方式：通过 GitHub Pages 官方 Action 链路自动部署（`upload-pages-artifact` + `deploy-pages`）
+- 仓库设置要求：`Settings -> Pages -> Build and deployment -> Source` 选择 `GitHub Actions`
+
+本地手动生成：
+
+```bash
+python3 -m pip install markdown
+python3 .scripts/generate_index.py --output index.html
+```
+
 ### ⚡ 推荐阅读与执行顺序
 
 | 顺序 | 文档/目录 | 作用 |
 |------|-----------|------|
-| 1 | [🗺️ ROADMAP.md](ROADMAP.md) | 先确认新人唯一主线要求（`glibc + systemd`） |
+| 1 | [🗺️ ROADMAP.md](ROADMAP.md) | 先确认新人默认主线要求（`glibc + systemd`） |
 | 2 | `submissions/` | 看历史卷轴结构与排障思路，减少盲区 |
 | 3 | 本页 (`readme.md`) | 按三段式方法论推进完整构建 |
 | 4 | [❓ FAQ.md](FAQ.md) | 卡住时按症状定位问题并修复 |
@@ -85,7 +101,7 @@ RISC-V-From-Scratch/
 
 ### 第一阶段：准备 (预计 1-2 天)
 
-1. **确认主线要求**（建议先读 [🗺️ ROADMAP.md](ROADMAP.md)）：新人按 `glibc + systemd` 执行（预计 3-5 天打通首轮）；历史提交中的其他技术栈仅供排障参考。
+1. **确认主线要求**（建议先读 [🗺️ ROADMAP.md](ROADMAP.md)）：新人默认按 `glibc + systemd` 执行（预计 3-5 天打通首轮）；`SysVinit` 仅作历史参考（当前 LFS 官方主线已放弃支持）；若走花活路线（如切换 libc 或 1 号进程），需在卷轴中明确与默认主线的差异、额外步骤、风险与回滚。
 
 2. **了解目标**：阅读本文档，理解 LFS/CLFS 的基本概念
 
