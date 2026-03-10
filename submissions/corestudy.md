@@ -10,7 +10,7 @@
 ## Rootfs 资产
 
 - 文件名: rootfs-riscv64-lfs-corestudy.tar.zst
-- SHA256: 132ba5c1cbfc44b0d765cbc698928a0cbce57ca0ab1aba4bdaae0c442f8cb3fa  
+- SHA256: 712b15c7d42193a0eb7c56e9166dfa702eef533e194be940228ee60880066013 
 
 ## 如何从 rootfs 运行起来
 
@@ -21,32 +21,33 @@
 首先，解压下载的压缩包并进入 cls 目录：
 
 tar -I zstd -xvf rootfs-riscv64-lfs-corestudy.tar.zst
-cd cls
+
 
 
 ### 方式 1: 使用 QEMU 系统模式
 
 '''bash
-export LFS="/home/shida/clfs"
-sudo mkdir -p /mnt/clfs
-sudo mount -o loop $LFS/rootfs.ext4 /mnt/clfs
-sudo cp -av $LFS/rootfs/* /mnt/clfs/
-sudo umount /mnt/clfs
 
-export CLFS="/home/shida/clfs"
-qemu-system-riscv64 \
-    -machine virt \
-    -cpu rv64 \
-    -smp 2 \
-    -m 1G \
-    -nographic \
-    -kernel "KERNEL" \
-    -drive file=${CLFS}/rootfs.ext4,format=raw,id=hd0 \
-    -device virtio-blk-device,drive=hd0 \
-    -netdev user,id=net0 \
-    -device virtio-net-device,netdev=net0 \
-    -object rng-random,filename=/dev/urandom,id=rng0 \
-    -device virtio-rng-pci,rng=rng0 \
+dd if=/dev/zero of=rootfs.ex4 bs=1M count=2048
+sudo /usr/sbin/mkfs.ext4 rootfs.ex4
+sudo mkdir -p /home/shida/clfs/tmp
+sudo mount -o loop rootfs.ex4 /home/shida/clfs/tmp
+sudo cp -a rootfs/* /home/shida/clfs/tmp
+sudo umount /home/shida/clfs/tmp
+
+qemu-system-riscv64   \
+    -machine virt  \
+    -cpu rv64    \
+    -smp 2     \
+    -m 1G     \
+    -nographic     \
+    -kernel ./Image     \
+    -drive file=${CLFS}/rootfs.ext4,format=raw,id=hd0     \
+    -device virtio-blk-device,drive=hd0   \
+    -netdev user,id=net0   \
+    -device virtio-net-device,netdev=net0    \
+    -object rng-random,filename=/dev/urandom,id=rng0   \
+    -device virtio-rng-pci,rng=rng0    \
     -append "root=/dev/vda rw console=ttyS0 loglevel=3 systemd.show_status=true"
 '''
 
