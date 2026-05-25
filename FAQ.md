@@ -390,9 +390,13 @@ ls -l ${CLFS}/usr/lib/libmount.so.1
 
 **症状**：chroot 成功后，没有任何提示符或输出。
 
-**原因**：没有安装可用 shell（通常是 `bash`），或 `/bin/sh` 未正确指向。
+**原因**：
+1. 没有安装可用 shell（通常是 `bash`），或 `/bin/sh` 未正确指向。
+2. bash觉得自己不是交互式的，导致不输出提示符。
 
 **解决**：
+
+先试着在 chroot 内输入 `id` 并回车，如果输出了 ID 说明其实是 bash 没有交互，将 `/bin/bash` 替换为 `/bin/bash -i` 即可。
 
 **Jvlegod 提醒**：必须在 chroot 前确保目标系统里至少有一个可用 shell（推荐 `bash`）。
 
@@ -405,6 +409,8 @@ ln -sf bash ${CLFS}/bin/sh
 
 # 不建议将 /bin/sh 指向非主线 shell 方案
 ```
+
+
 
 ---
 
